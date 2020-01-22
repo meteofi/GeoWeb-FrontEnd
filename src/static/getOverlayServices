@@ -1,0 +1,8 @@
+[{
+    "name": "OVL",
+    "title": "OVL_EXT",
+    "service": "https://geoweb.knmi.nl/adaguc-services/adagucserver?DATASET=OVL",
+    "type": "WMS",
+    "goal": "OVERLAY",
+    "roles": ["USER", "MET"]
+}]

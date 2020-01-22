@@ -1,0 +1,12 @@
+{
+    "username": "guest",
+    "password": "XXX",
+    "roles": [
+        "USER",
+        "ANON"
+    ],
+    "roleNames": [
+        "USER",
+        "ANON"
+    ]
+}

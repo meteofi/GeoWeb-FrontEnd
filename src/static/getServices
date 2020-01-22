@@ -1,0 +1,30 @@
+[{
+    "name": "FMI Open Data Radar",
+    "title": "FMI Open Data Radar",
+    "service": "https://openwms.fmi.fi/geoserver/Radar/wms",
+    "type": "WMS",
+    "goal": "LAYER",
+    "roles": ["USER", "MET"]
+}, {
+    "name": "EUMETSAT",
+    "title": "EUMETSAT",
+    "service": "https://eumetview.eumetsat.int/geoserv/wms",
+    "type": "WMS",
+    "goal": "LAYER",
+    "roles": ["USER", "MET"]
+}, {
+    "name": "Radar FMI Clients GeoServer",
+    "title": "FMI Clients GeoServer",
+    "service": "https://wms.fmi.fi/fmi-apikey/2298ea44-5ad4-4f07-838f-7dbc75af8379/geoserver/Radar/wms",
+    "type": "WMS",
+    "goal": "LAYER",
+    "roles": ["USER", "MET"]
+}, {
+    "name": "Satellite FMI Clients GeoServer",
+    "title": "FMI Clients GeoServer",
+    "service": "https://wms.fmi.fi/fmi-apikey/2298ea44-5ad4-4f07-838f-7dbc75af8379/geoserver/Satellite/wms",
+    "type": "WMS",
+    "goal": "LAYER",
+    "roles": ["USER", "MET"]
+}]
+
