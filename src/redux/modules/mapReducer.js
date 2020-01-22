@@ -9,12 +9,12 @@ const INITIAL_STATE = {
     name: 'Mercator'
   },
   boundingBox: {
-    title: 'Netherlands',
+    title: 'Northern Europe',
     bbox: [
-      314909.3659069278,
-      6470493.345653814,
-      859527.2396033217,
-      7176664.533565958
+      9783.9814,
+      7073788.4324,
+      4045658.9844,
+      11574400.6058
     ]
   }
 };
