@@ -1,5 +1,5 @@
 {
-  "BACKEND_SERVER_URL": "http://geoweb.meteo.fi",
+  "BACKEND_SERVER_URL": "https://geoweb.meteo.fi",
   "WEBSERVER_URL": "geoweb.meteo.fi",
   "BACKEND_SERVER_XML2JSON": "http://localhost:8080/XML2JSON?"
 }
