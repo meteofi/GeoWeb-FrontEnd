@@ -5,7 +5,10 @@ cache:
   directories:
   - node_modules
 script:
+- npm install
+- npm run clean
 - npm run deploy:prod-quick
+- echo "{ \"BACKEND_SERVER_URL\": \"https://geoweb.meteo.fi\", \"BACKEND_SERVER_XML2JSON\": \"http://localhost:8080/XML2JSON?\" }" > dist/urls.json
 deploy:
   - provider: firebase
     token:
