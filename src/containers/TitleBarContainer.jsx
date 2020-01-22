@@ -10,8 +10,9 @@ import CopyToClipboard from 'react-copy-to-clipboard';
 import axios from 'axios';
 import uuidV4 from 'uuid/v4';
 import {
-  Alert, Navbar, NavbarBrand, Row, Col, Nav, NavLink, Breadcrumb, BreadcrumbItem,
-  Collapse, Label, ListGroup, ListGroupItem, ButtonGroup, InputGroupAddon, Modal, ModalHeader, ModalBody, ModalFooter, Button, InputGroup, Input, FormText
+  Alert, Navbar, NavbarBrand, Row, Col, Nav, NavLink,
+  Breadcrumb, BreadcrumbItem, Label, ListGroup, ListGroupItem,
+  ButtonGroup, InputGroupAddon, Modal, ModalHeader, ModalBody, ModalFooter, Button, InputGroup, Input, FormText
 } from 'reactstrap';
 import { AvForm, AvRadioGroup, AvRadio, AvField, AvGroup } from 'availity-reactstrap-validation';
 import { Link, hashHistory } from 'react-router';
@@ -22,6 +23,8 @@ import { Typeahead } from 'react-bootstrap-typeahead';
 import { GetServices } from '../utils/getServiceByName';
 import { version } from '../../package.json';
 import { WMJSGetServiceFromStore, WMJSLayer } from 'adaguc-webmapjs';
+import { generateLayerId } from '../utils/ReactWMJSTools';
+import produce from 'immer';
 
 const timeFormat = 'ddd DD MMM YYYY HH:mm [UTC]';
 const browserFullScreenRequests = [
@@ -29,11 +32,20 @@ const browserFullScreenRequests = [
   'msRequestFullscreen',
   'webkitRequestFullScreen'
 ];
+const getOauth2LoginModal = (titleBarContiainer, loginModalOpen, loginModalMessage, toggleLoginModal, handleOnChange, handleKeyPressPassword) => {
+  const { urls } = titleBarContiainer.props;
+  if (loginModalOpen) {
+    if (window && window.location) {
+      window.location = urls.BACKEND_SERVER_URL + '/login';
+    }
+  }
+  return null;
+};
 
 class TitleBarContainer extends PureComponent {
   constructor (props) {
     super(props);
-    this.setTime = this.setTime.bind(this);
+    this.updateTime = this.updateTime.bind(this);
     this.doLogin = this.doLogin.bind(this);
     this.doLogout = this.doLogout.bind(this);
     this.savePreset = this.savePreset.bind(this);
@@ -48,19 +60,18 @@ class TitleBarContainer extends PureComponent {
     this.handleKeyPressPassword = this.handleKeyPressPassword.bind(this);
     this.checkCredentials = this.checkCredentials.bind(this);
     this.setLoggedOutCallback = this.setLoggedOutCallback.bind(this);
-    this.checkCredentialsOKCallback = this.checkCredentialsOKCallback.bind(this);
     this.checkCredentialsBadCallback = this.checkCredentialsBadCallback.bind(this);
     this.getServices = this.getServices.bind(this);
     this.fetchVersionInfo = this.fetchVersionInfo.bind(this);
     this.renderLoginModal = this.renderLoginModal.bind(this);
-
+    this.checkSignInMethod = this.checkSignInMethod.bind(this);
     this.render = this.render.bind(this);
     this.inputfieldUserName = '';
     this.inputfieldPassword = '';
     this.timer = -1;
     this.inputRefs = {};
     this.state = {
-      currentTime: moment().utc().format(timeFormat).toString(),
+      currentTime: this.props.currentTime || moment().utc().format(timeFormat).toString(),
       loginModal: this.props.loginModal,
       loginModalMessage: '',
       feedbackModalOpen: false,
@@ -70,13 +81,12 @@ class TitleBarContainer extends PureComponent {
       versionInfo: {
         backend: '...',
         frontend: version
-      }
+      },
+      signInMethod: 'generic'
     };
   }
-
   getServices () {
     const { urls, dispatch, adagucActions } = this.props;
-
     GetServices(urls.BACKEND_SERVER_URL, urls.BACKEND_SERVER_XML2JSON).then((sources) => {
       dispatch(adagucActions.setSources(sources));
     });
@@ -98,7 +108,8 @@ class TitleBarContainer extends PureComponent {
     return false;
   }
 
-  setTime () {
+  /* Updates the current time in the state */
+  updateTime () {
     const time = moment().utc().format(timeFormat).toString();
     this.setState({ currentTime: time });
   }
@@ -107,10 +118,40 @@ class TitleBarContainer extends PureComponent {
     clearInterval(this.timer);
   }
 
+  /**
+   * This will check if the backend is running in traditional generic mode, or in keycloak/cognito OAuth2 mode.
+   */
+  checkSignInMethod () {
+    const { urls } = this.props;
+    return new Promise((resolve, reject) => {
+      axios({
+        method: 'get',
+        url: urls.BACKEND_SERVER_URL + '/login/options',
+        withCredentials: true,
+        responseType: 'json'
+      }).then(src => {
+        if (src.data.type && src.data.type === 'oauth2') {
+          resolve('oauth2');
+        } else {
+          resolve('generic');
+        }
+      }).catch((e) => {
+        resolve('generic');
+      });
+    });
+  }
+
   componentDidMount () {
-    this.timer = setInterval(this.setTime, 15000);
-    this.setState({ currentTime: moment().utc().format(timeFormat).toString() });
-    this.checkCredentials();
+    this.timer = setInterval(() => {
+      this.updateTime();
+      this.checkCredentials();
+    }, 15000);
+    this.setState({ currentTime: this.props.currentTime || moment().utc().format(timeFormat).toString() });
+    this.checkSignInMethod().then((signInMethod) => {
+      this.setState({ signInMethod: signInMethod }, () => {
+        this.checkCredentials();
+      });
+    });
     this.fieldToFocus = 'username';
     this.fetchVersionInfo();
   }
@@ -150,21 +191,33 @@ class TitleBarContainer extends PureComponent {
 
   doLogout () {
     const { urls } = this.props;
+    // if (this.state.signInMethod === 'oauth2') {
+    //   window.location = urls.BACKEND_SERVER_URL + '/logout';
+    //   return;
+    // }
+    console.log('Loggingout');
     this.toggleLoginModal();
+    const url = urls.BACKEND_SERVER_URL + '/logout' + (this.state.signInMethod === 'oauth2' ? '/geoweb' : '');
     axios({
       method: 'get',
-      url: urls.BACKEND_SERVER_URL + '/logout',
+      url: url,
       withCredentials: true,
       responseType: 'json'
     }).then(src => {
       this.setLoggedOutCallback('Signed out');
       hashHistory.push('/');
     }).catch(error => {
-      this.setLoggedOutCallback(error.response.data.message);
+      if (error.response && error.response.data) {
+        this.setLoggedOutCallback(error.response.data.message);
+      } else {
+        this.setLoggedOutCallback('Signed out');
+        hashHistory.push('/');
+      }
     });
   }
 
   checkCredentials (callback) {
+    const { dispatch } = this.props;
     const { urls } = this.props;
 
     try {
@@ -174,17 +227,39 @@ class TitleBarContainer extends PureComponent {
     } catch (e) {
       console.error(e);
     }
-    axios({
-      method: 'get',
-      url: urls.BACKEND_SERVER_URL + '/getuser',
-      withCredentials: true,
-      responseType: 'json'
-    }).then(src => {
-      this.checkCredentialsOKCallback(src.data);
-      if (callback) callback();
-    }).catch(error => {
-      this.checkCredentialsBadCallback(error);
-    });
+
+    if (this.state.signInMethod === null || this.state.signInMethod === 'generic') {
+      console.error(new Error('No authentication method found in /login/options'));
+      this.setState({
+        loginModalMessage: 'No authentication method found in /login/options'
+      });
+      this.getServices();
+      return;
+    }
+
+    if (this.state.signInMethod === 'oauth2') {
+      axios({
+        method: 'get',
+        url: urls.BACKEND_SERVER_URL + '/status',
+        withCredentials: true,
+        responseType: 'json'
+      }).then(src => {
+        if (src.data.userName && src.data.privileges) {
+          this.setState({
+            loginModal: false,
+            loginModalMessage: 'Signed in as user ' + src.data.userName
+          }, () => {
+            dispatch(this.props.userActions.login({ username: src.data.userName, roles: src.data.privileges }));
+            this.getServices();
+          });
+        } else {
+          this.checkCredentialsBadCallback(new Error('Unable to get /status from backend'));
+        }
+        if (callback) callback();
+      }).catch(error => {
+        this.checkCredentialsBadCallback(error);
+      });
+    }
   }
 
   setLoggedOutCallback (message) {
@@ -198,42 +273,6 @@ class TitleBarContainer extends PureComponent {
     dispatch(userActions.logout());
     this.getServices();
   };
-
-  checkCredentialsOKCallback (data) {
-    const { dispatch } = this.props;
-    const username = data.username ? data.username : data.userName;
-    const roles = data.roles;
-    if (username && username.length > 0) {
-      if (username === 'guest') {
-        if (this.inputfieldUserName !== '' && this.inputfieldUserName !== 'guest') {
-          // User has entered something else than 'guest', so the backend does not return the new user.
-          // This is probably causes by cookies not being saved.
-          this.checkCredentialsBadCallback({
-            response: {
-              data: {
-                message: 'Your browser is probably blocking cookies. We need cookies to keep your credentials. Please contact your administrator.'
-              }
-            }
-          });
-        } else {
-          this.checkCredentialsBadCallback({ response: { data: { message: 'guest' } } });
-        }
-        return;
-      }
-      this.getServices();
-      this.setState({
-        loginModal: false,
-        loginModalMessage: 'Signed in as user ' + username
-      }, () => {
-        dispatch(this.props.userActions.login({ username: username, roles: roles }));
-      });
-    } else {
-      this.getServices();
-      this.setState({
-        loginModalMessage: (this.inputfieldUserName && this.inputfieldUserName.length > 0) ? 'Unauthorized' : ''
-      });
-    }
-  }
 
   checkCredentialsBadCallback (error) {
     let errormsg = '';
@@ -337,35 +376,11 @@ class TitleBarContainer extends PureComponent {
         </ModalFooter>
       </Modal>);
     } else {
-      return (<Modal isOpen={loginModalOpen} toggle={toggleLoginModal}>
-        <ModalHeader toggle={toggleLoginModal}>Sign in</ModalHeader>
-        <ModalBody>
-          <Collapse isOpen>
-            <InputGroup>
-              <input ref={(input) => { this.inputRefs['username'] = input; }} className='form-control' tabIndex={0} placeholder='username' name='username'
-                onChange={this.handleOnChange}
-                onFocus={this.handleOnFocus}
-                onBlur={this.handleOnFocus}
-              />
-              <Input ref={(input) => { this.inputRefs['password'] = input; }} type='password' name='password' id='examplePassword' placeholder='password'
-                onKeyPress={handleKeyPressPassword} onChange={handleOnChange} onFocus={this.handleOnFocus} />
-            </InputGroup>
-          </Collapse>
-          <FormText color='muted'>
-            {loginModalMessage ? null : 'Backend: ' + urls.BACKEND_SERVER_URL}
-          </FormText>
-          <FormText color='muted'>
-            {loginModalMessage}
-          </FormText>
-        </ModalBody>
-        <ModalFooter>
-          <Button color='primary' onClick={this.doLogin} className='signInOut'>
-            <Icon className='icon' name='sign-in' />
-            Sign in
-          </Button>
-          <Button color='secondary' onClick={this.toggleLoginModal}>Cancel</Button>
-        </ModalFooter>
-      </Modal>);
+      if (this.state.signInMethod === 'oauth2') {
+        return getOauth2LoginModal(this, loginModalOpen, loginModalMessage, toggleLoginModal, handleOnChange, handleKeyPressPassword);
+      } else {
+        return null;
+      }
     }
   }
 
@@ -494,21 +509,21 @@ class TitleBarContainer extends PureComponent {
   }
 
   makePresetObj (presetName, saveLayers, savePanelLayout, saveBoundingBox, role) {
-    const { mapProperties } = this.props;
-    const { layout } = mapProperties;
+    const { panelsProperties } = this.props;
+    const { panelLayout } = panelsProperties;
     let numPanels;
-    if (/quad/.test(layout)) {
+    if (/quad/.test(panelLayout)) {
       numPanels = 4;
-    } else if (/triple/.test(layout)) {
+    } else if (/triple/.test(panelLayout)) {
       numPanels = 3;
-    } else if (/dual/.test(layout)) {
+    } else if (/dual/.test(panelLayout)) {
       numPanels = 2;
     } else {
       numPanels = 1;
     }
 
     const displayObj = {
-      type: layout,
+      type: panelLayout,
       npanels: numPanels
     };
     const bbox = {
@@ -629,9 +644,16 @@ class TitleBarContainer extends PureComponent {
           </Col>
           <Col xs='auto'>
             <Nav>
-              <NavLink className='active' onClick={this.toggleLoginModal} ><Icon name='user' id='loginIcon' />{isLoggedIn ? ' ' + username : ' Sign in'}</NavLink>
+              {
+                this.state.signInMethod === null &&
+                (<NavLink className='active'><Icon name='user' id='loginIcon' />{isLoggedIn ? ' ' + username : ' ...'}</NavLink>)
+              }
+              {
+                this.state.signInMethod &&
+                (<NavLink className='active' onClick={this.toggleLoginModal} ><Icon name='user' id='loginIcon' />{isLoggedIn ? ' ' + username : ' Sign in'}</NavLink>)
+              }
               {hasRoleADMIN ? <Link to='manage' className='active nav-link'><Icon name='cog' /></Link> : ''}
-              <NavLink className='active' onClick={this.toggleFeedbackModal}><Icon name='exclamation-triangle' /> Report problem</NavLink>
+              <NavLink className='deactivated' onClick={this.toggleFeedbackModal}><Icon name='exclamation-triangle' /> Report problem</NavLink>
               <LayoutDropDown panelsProperties={this.props.panelsProperties} savePreset={this.savePreset}
                 fetchNewPresets={this.fetchPresets} mapActions={this.props.mapActions} presets={this.state.presets} onChangeServices={this.getServices}
                 urls={this.props.urls} panelsActions={this.props.panelsActions} mapProperties={this.props.mapProperties} dispatch={this.props.dispatch} />
@@ -724,6 +746,9 @@ class LayoutDropDown extends PureComponent {
   setPreset (preset) {
     const { dispatch, panelsActions, mapActions } = this.props;
     const thePreset = preset[0];
+    if (!thePreset) {
+      return;
+    }
     if (thePreset.area) {
       if (thePreset.crs || thePreset.area.crs) {
         dispatch(mapActions.setCut({
@@ -755,7 +780,10 @@ class LayoutDropDown extends PureComponent {
             const wmjsLayer = new WMJSLayer(layer);
             wmjsLayer.parseLayer((newLayer) => {
               newLayer.keepOnTop = (layer.overlay || layer.keepOnTop);
-              return resolve({ layer: newLayer, panelIdx: panelIdx, index: i });
+              const skeletonLayer = produce(newLayer, draft => {
+                draft.id = generateLayerId();
+              });
+              return resolve({ layer: skeletonLayer, panelIdx: panelIdx, index: i });
             });
           }));
         });
@@ -769,7 +797,10 @@ class LayoutDropDown extends PureComponent {
             layer.keepOnTop = true;
             newPanels[panelIdx].baselayers.push(layer);
           } else {
-            newPanels[panelIdx].layers[index] = layer;
+            const skeletonLayer = produce(layer, draft => {
+              draft.id = generateLayerId();
+            });
+            newPanels[panelIdx].layers[index] = skeletonLayer;
           }
         });
         // Beware: a layer can still contain null values because a layer might have been a null value
@@ -783,7 +814,8 @@ class LayoutDropDown extends PureComponent {
     this.setState({ popoverOpen: false });
     const presetName = uuidV4();
     const dataToSend = this.makePresetObj(presetName, true, true, true, '');
-    SaveURLPreset(presetName, dataToSend, `${this.props.urls.BACKEND_SERVER_URL}/store/create`, (message) => {
+    SaveURLPreset(presetName, dataToSend, `${this.props.urls.BACKEND_SERVER_URL}/preset/putsharedpreset`, (message) => {
+      console.log('Message status ' + message.status);
       if (message.status === 'ok') {
         this.setState({
           sharePresetModal: true,
@@ -796,21 +828,21 @@ class LayoutDropDown extends PureComponent {
   }
 
   makePresetObj (presetName, saveLayers, savePanelLayout, saveBoundingBox, role) {
-    const { mapProperties } = this.props;
-    const { layout } = mapProperties;
+    const { panelsProperties } = this.props;
+    const { panelLayout } = panelsProperties;
     let numPanels;
-    if (/quad/.test(layout)) {
+    if (/quad/.test(panelLayout)) {
       numPanels = 4;
-    } else if (/triple/.test(layout)) {
+    } else if (/triple/.test(panelLayout)) {
       numPanels = 3;
-    } else if (/dual/.test(layout)) {
+    } else if (/dual/.test(panelLayout)) {
       numPanels = 2;
     } else {
       numPanels = 1;
     }
 
     const displayObj = {
-      type: layout,
+      type: panelLayout,
       npanels: numPanels
     };
     const bbox = {
@@ -1068,7 +1100,8 @@ TitleBarContainer.propTypes = {
   adagucActions: PropTypes.object,
   bbox: PropTypes.array,
   fullState: PropTypes.object,
-  urls: PropTypes.object
+  urls: PropTypes.object,
+  currentTime: PropTypes.string
 };
 
 TitleBarContainer.defaultProps = {

@@ -3,11 +3,14 @@ import moment from 'moment';
 import { notify } from 'reapop';
 import {
   AIRMET_MODES, AIRMET_TEMPLATES, UNITS, UNITS_LABELED, MODES_LVL, MOVEMENT_TYPES, DISTRIBUTION_TYPES, CHANGE_TYPES,
-  AIRMET_VARIANTS_PREFIXES } from '../../components/Airmet/AirmetTemplates';
+  AIRMET_VARIANTS_PREFIXES
+} from '../../components/Airmet/AirmetTemplates';
 import { DATETIME_FORMAT } from '../../config/DayTimeConfig';
 import { LOCAL_ACTION_TYPES, CATEGORY_REFS, STATUSES } from './AirmetActions';
-import { clearEmptyPointersAndAncestors, safeMerge, isFeatureGeoJsonComplete,
-  MODES_GEO_SELECTION, MODES_GEO_MAPPING, isObject } from '../../utils/json';
+import {
+  clearEmptyPointersAndAncestors, safeMerge, isFeatureGeoJsonComplete,
+  MODES_GEO_SELECTION, MODES_GEO_MAPPING, isObject
+} from '../../utils/json';
 import { getPresetForPhenomenon } from '../../components/Airmet/AirmetPresets';
 import { FEEDBACK_STATUS } from '../../config/StatusConfig';
 import axios from 'axios';
@@ -119,7 +122,7 @@ const retrieveParameters = (container) => {
 };
 
 const updateParameters = (parameters, container) => {
-  const { active_firs : activeFirs, firareas } = parameters;
+  const { active_firs: activeFirs, firareas } = parameters;
   if (Array.isArray(activeFirs)) {
     activeFirs.forEach((firKey) => {
       const firData = firareas
@@ -744,9 +747,16 @@ const updateAirmet = (dataField, value, container) => {
       preset = getPresetForPhenomenon(value, sources);
     }
   }
-  if ((dataField === 'validdate' || dataField === 'validdate_end') && value === null) {
-    value = moment.utc().add(1, 'minute').format(DATETIME_FORMAT);
+  if ((dataField === 'validdate') && value === null) {
+    value = moment.utc().format(DATETIME_FORMAT);
   }
+  if ((dataField === 'validdate_end') && value === null) {
+    /* if validity start is defined, use this, otherwise use current time */
+    value = affectedAirmet.validdate
+      ? moment(affectedAirmet.validdate).utc().add(1, 'hour').format(DATETIME_FORMAT)
+      : moment.utc().add(1, 'hour').format(DATETIME_FORMAT);
+  }
+
   if (dataField.indexOf('levelinfo') !== -1) {
     switch (fieldToUpdate) {
       case 'unit':
@@ -831,7 +841,8 @@ const clearRelatedIntersection = (featureId, features, dispatch, drawActions) =>
     dispatch(drawActions.setFeature({
       geometry: { coordinates: [], type: null },
       properties: { selectionType: null },
-      featureId: relatedIntersection.id }));
+      featureId: relatedIntersection.id
+    }));
   }
 };
 
@@ -863,8 +874,7 @@ const drawAirmet = (event, uuid, container, action, featureFunction) => {
       updatableFeatureProps.geometry.type = 'Point';
       updatableFeatureProps.properties.selectionType = MODES_GEO_SELECTION.POINT;
       dispatch(drawActions.setFeature(updatableFeatureProps));
-      clearRelatedIntersection(featureId, features, dispatch, drawActions);
-      setStatePromise(container, { selectedAuxiliaryInfo: { [drawMode]: action } });
+      if (action !== selectedAuxiliaryInfo[drawMode]) clearRelatedIntersection(featureId, features, dispatch, drawActions);
       break;
     case 'select-region':
       dispatch(mapActions.setMapMode('draw'));
@@ -872,8 +882,7 @@ const drawAirmet = (event, uuid, container, action, featureFunction) => {
       updatableFeatureProps.geometry.type = 'Polygon';
       updatableFeatureProps.properties.selectionType = MODES_GEO_SELECTION.BOX;
       dispatch(drawActions.setFeature(updatableFeatureProps));
-      clearRelatedIntersection(featureId, features, dispatch, drawActions);
-      setStatePromise(container, { selectedAuxiliaryInfo: { [drawMode]: action } });
+      if (action !== selectedAuxiliaryInfo[drawMode]) clearRelatedIntersection(featureId, features, dispatch, drawActions);
       break;
     case 'select-shape':
       dispatch(mapActions.setMapMode('draw'));
@@ -881,26 +890,27 @@ const drawAirmet = (event, uuid, container, action, featureFunction) => {
       updatableFeatureProps.geometry.type = 'Polygon';
       updatableFeatureProps.properties.selectionType = MODES_GEO_SELECTION.POLY;
       dispatch(drawActions.setFeature(updatableFeatureProps));
-      clearRelatedIntersection(featureId, features, dispatch, drawActions);
-      setStatePromise(container, { selectedAuxiliaryInfo: { [drawMode]: action } });
+      if (action !== selectedAuxiliaryInfo[drawMode]) clearRelatedIntersection(featureId, features, dispatch, drawActions);
       break;
     case 'select-fir':
       dispatch(mapActions.setMapMode('pan'));
       dispatch(drawActions.setFeatureEditPolygon());
       updatableFeatureProps.properties.selectionType = MODES_GEO_SELECTION.FIR;
       dispatch(drawActions.setFeature(updatableFeatureProps));
-      clearRelatedIntersection(featureId, features, dispatch, drawActions);
-      setStatePromise(container, { selectedAuxiliaryInfo: { [drawMode]: action } });
+      if (action !== selectedAuxiliaryInfo[drawMode]) clearRelatedIntersection(featureId, features, dispatch, drawActions);
       break;
     case 'delete-selection':
       dispatch(mapActions.setMapMode('pan'));
       dispatch(drawActions.setFeature(updatableFeatureProps));
-      clearRelatedIntersection(featureId, features, dispatch, drawActions);
-      setStatePromise(container, { selectedAuxiliaryInfo: { [drawMode]: action } });
+      if (action !== selectedAuxiliaryInfo[drawMode]) clearRelatedIntersection(featureId, features, dispatch, drawActions);
       break;
     default:
       console.error(`Selection method ${action} unknown and not implemented`);
   }
+  setStatePromise(container, { selectedAuxiliaryInfo: { [drawMode]: action } })
+    .then(() => {
+      verifyAirmet(container.state.selectedAirmet[0], container);
+    });
   dispatch(drawActions.setFeatureNr(featureIndex));
 };
 
@@ -938,9 +948,10 @@ const setPanelFeedback = (message, container) => {
 };
 
 const cleanup = (container) => {
-  const { dispatch, drawActions } = container.props;
+  const { dispatch, drawActions, panelsActions } = container.props;
   setPanelFeedback(null, container);
   dispatch(drawActions.setGeoJSON(initialGeoJson()));
+  dispatch(panelsActions.enableMapPin({ panelId: 0, enabled: true }));
   return setStatePromise(container, {
     selectedAuxiliaryInfo: {
       feedbackStart: null,
@@ -976,6 +987,8 @@ const createFirIntersection = (featureId, geojson, container) => {
     return iSFeature.properties.relatesTo === featureId && iSFeature.properties.featureFunction === 'intersection';
   });
   if (intersectionData && intersectionFeature) {
+    /* Clean intersection feature coordinates before updating these */
+    intersectionFeature.geometry.coordinates = null;
     return axios({
       method: 'post',
       url: `${urls.BACKEND_SERVER_URL}/airmets/airmetintersections`,
@@ -1283,7 +1296,7 @@ const cancelAirmet = (event, container) => {
     return;
   }
   setStatePromise(container, {
-    selectedAirmet: [ { status: STATUSES.CANCELED } ]
+    selectedAirmet: [{ status: STATUSES.CANCELED }]
   }).then(() => postAirmet(container))
     .then((uuid) => {
       showFeedback(container, 'Airmet canceled', `Airmet ${uuid} was successfully canceled`, FEEDBACK_STATUS.OK);
@@ -1301,7 +1314,7 @@ const cancelAirmet = (event, container) => {
       if (indices.isFound && publishedCategory) {
         const canceledAirmet = categories[indices.categoryIndex].airmets[indices.airmetIndex];
         const cancelAirmet = publishedCategory.airmets.find((airmet) => airmet.cancels === canceledAirmet.sequence &&
-        airmet.phenomenon === canceledAirmet.phenomenon);
+          airmet.phenomenon === canceledAirmet.phenomenon);
         if (cancelAirmet) {
           focusAirmet(cancelAirmet.uuid, container);
         }
@@ -1310,9 +1323,10 @@ const cancelAirmet = (event, container) => {
 };
 
 const setAirmetDrawing = (geojson, firName, container) => {
-  const { dispatch, drawActions } = container.props;
+  const { dispatch, drawActions, panelsActions } = container.props;
   const enhancedGeojson = addFirFeature(geojson, firName || null, container);
   dispatch(drawActions.setGeoJSON(enhancedGeojson || geojson));
+  dispatch(panelsActions.enableMapPin({ panelId: 0, enabled: false }));
   return Promise.resolve();
 };
 
@@ -1380,7 +1394,7 @@ const toggleAirmetModal = (event, type, container) => {
  * @param {component} container The container in which the AIRMET modal should be toggled
  */
 const toggleHasEdits = (event, value, container) => {
-  const { hasEdits : prevHasEdits } = container.state.selectedAuxiliaryInfo;
+  const { hasEdits: prevHasEdits } = container.state.selectedAuxiliaryInfo;
   const newValue = typeof value === 'boolean' ? value : !prevHasEdits;
   if (event) {
     event.stopPropagation();

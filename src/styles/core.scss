@@ -6,6 +6,7 @@
 @import 'taftable';
 @import 'taf';
 @import 'exportedproducts';
+@import 'testproducts';
 @import 'popover';
 @import 'datetime';
 @import 'layermanager';
@@ -870,4 +871,8 @@ span.fa {
 
 .accordion .card-body .TafStyle.row.btn .row {
   flex-direction: row;
+}
+
+.deactivated {
+  display: none;
 }

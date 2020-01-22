@@ -1,3 +1,87 @@
+2020-01-15
+* GW-153: Presets can now be shared again.
+* GW-268: Added a fix that gives preset layers a correct id which ensures they are loaded and updated correctly
+
+2020-01-14
+* GW-285: Add service layers button always available and delete buttons available only if there is some layers (except baselayer and country) added.
+* GW-268: Presets are now working again.
+* Removed WEBSERVER_URL because it is not used.
+* GW-285: Add service layers button always available and delete buttons available only if there is some layers (except baselayer and country) added.
+* GW-287: The FE will now make a call to the BE every 15 seconds enquiring if you are still logged in. If not, the headerbar is automatically updated to show that you need to log in.
+
+2020-01-09
+* GW-279: During a previous change, a bug was introduced that made it impossible to set a point for AIRMET/SIGMET. This has been resolved and you are now able to draw a point on the map again.
+* GW-280: After having drawn a box or polygon, if you press the respective draw button again (either box or polygon) so as to move the drawn figure around or change its shape, a red border was shown around the drawing tools and the TAC was validated incorrectly. This has now been fixed
+
+2020-01-02
+* GW-184: Added autofilling of the change and probability groups when entering certain characters. For examplem, when typing 'B' in the change field, it will automatically fill in 'BECMG' as that is the only valid option starting with B.
+
+2019-12-16
+* (FIX) GW-267: Disable unused GUI components: report problem button, "Checklist shift", "Monitoring & Triggers", "Reports & logs",
+"Draw", "Bin", "Timeseries", and "Progtemp".
+
+2019-12-11
+* (FIX) GW-215: Do not persist more than one polygon so that the backend accepts this geometry
+
+2019-11-28
+* (FIX) GW-218: Updated SigmetReadMode to say 'Missing end geometry' if the end geometry is missed
+* (FIX) GW-218: AIRMET - TAC is currently not updating when deleting the start or end position of the FIR - Fixed this by ensuring the TAC gets an update from the backend if removed so it says 'Missing Geometry' in the example TAC
+* Fixed an issue where loads of errors appeared in the log when going over the map with your mouse - from adaguc if no valid coordinates
+
+2019-11-27
+* (FIX) GW-218: SIGMET - TAC is currently not updating when deleting the start or end position of the FIR - Fixed this by ensuring the TAC gets an update from the backend if removed so it says 'Missing Geometry' in the example TAC
+* (Fix) GW-227: Remove map pin in edit mode for Airmet
+
+2019-11-21
+* (FIX) Sigmet & Airmet: The validation rules are not using anymore min and max in Timepicker component but they are in one place (SigmetValidation and AirmetValidation)
+* Fix the css for Airmet Validity invalid property of Timepicker
+
+2019-11-20
+* (FIX) GW-216: Sigmet & Airmet: The obs/fcs is no longer mandatory - if not entered, not validated as incorrect in both edit and read mode. 
+* (Fix) GW-214: When creating an Airmet - the obs/fcs time is no longer defaulted in. Instead it is left blank
+* (Fix) GW-214: Sigmet & Airmet: When clearing obs/fcs time - it is blanked out instead of adding in a default time
+* (FIX) GW-216: Sigmet & Airmet: In read mode and edit mode: the observation time can only be from 2 hours in the past till now.
+* (FIX) GW-216: Sigmet & Airmet: In read mode and edit more: the forecast time can only be inside of the validity period
+* (FIX) GW-216: Sigmet & Airmet: In edit mode and read mode: the validity start time for forecasted phenomena can only be in the future
+* (FIX) GW-216: Sigmet & Airmet: In edit mode and read mode: the validity start time for observed phenomena can be 2 hours in the past or later
+
+2019-11-19
+* (Fix) GW-214: Sigmet: validity_end must now be higher than validity_start
+* (Fix) GW-214: Sigmet: Forecast time cannot not be in the past, it must start in the future
+* (Fix) GW-214: Sigmet: The observation time can now not start in the future 
+* (Fix) GW-214: Sigmet: When clearing the observation time, it is set to current
+* (Fix) GW-214: Sigmet: When clearing the forecast time, it is set to validity_start
+* (Fix) GW-214: Sigmet: When clearing validity_start (with the cross) it is set to current time ('now')
+* (Fix) GW-214: Sigmet: When clearing validity_end, it is set to +1 hour from validity start, or if not available it is based on current time.
+* (fix) GW-216: Sigmet: Observation or forecast time can now not be empty
+* (fix) GW-216: Sigmet: In the Sigmet readmode, the observation or forecast time is validated, and the publish button is disabled when invalid
+* (fix) GW-216: Sigmet: In the Sigmet readmode, geometry in the FIR section is validated, and the publish button is disabled when not present
+
+2019-11-18
+* (Fix) GW-223: Visibility max value for SFC_VIS phenomenon is set to 9999
+* (Fix) GW-224: Added in Airmet Read-Mode the unit field (M) for visibility.
+* (Fix) GW-217: Drawing a polyon ouside of the FIR gives an invalid feedback (red border or red font)
+
+2019-11-14
+* (Fix) GW-216: It is no longer possible to have a lower level that is higher than the upper level. Shown highlighted in red in both edit and read mode
+* GW-216: Improved the user experience in AIRMET read-mode: when the Airmet is not publishable, the mistake is highlighted in red - only for mandatory fields
+* (fix) GW-216: Airmet: Observation or forecast time can now not be empty
+* (fix) GW-216: Airmet: In the Airmet readmode, the observation or forecast time is validated, and the publish button is disabled when invalid
+* (fix) GW-216: Airmet: In the Airmet readmode, geometry in the FIR section is validated, and the publish button is disabled when not present
+
+2019-11-11
+* (Fix) GW-214: For both SIGMET and AIRMET, the validity end time can no longer be equal to the start time. The mistake is highlighted in red in both read and edit mode. 
+* (Fix) GW-214: For both SIGMET and AIRMET, the entered forecast time is now validated as incorrect if it is in the past. In edit mode, it is highlighed red. 
+* (Fix) GW-214: For AIRMET, the observed time could be in the future. This will no longer be validated as correct. It will be highlighted as red in edit mode. 
+* (Fix) GW-214: When creating an AIRMET, the observed time is automatically set to the current time
+* (Fix) GW-214: Airmet: validity_end must now be higher than validity_start
+* (Fix) GW-214: Airmet: Forecast time cannot not be in the past, it must start in the future
+* (Fix) GW-214: Airmet: The observation time can now not start in the future 
+* (Fix) GW-214: Airmet: When clearing the observation time, it is set to current
+* (Fix) GW-214: Airmet: When clearing the forecast time, it is set to validity_start
+* (Fix) GW-214: Airmet: When clearing validity_start (with the cross) it is set to current time ('now')
+* (Fix) GW-214: Airmet: When clearing validity_end, it is set to +1 hour from validity start, or if not available it is based on current time.
+
 2019-11-11
 * Merged master into style/ADAGUC/from_npm
 * Hide map pin during sigmet drawing
